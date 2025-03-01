@@ -1,101 +1,49 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
-const bodyParser = require('body-parser');
 const cors = require('cors');
-const path = require('path');
+const bodyParser = require('body-parser');
 
 const app = express();
 const port = 3000;
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// ✅ Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ✅ Create or connect to SQLite database
-const db = new sqlite3.Database('./mydatabase.db', (err) => {
+// ✅ Connect to SQLite database
+const db = new sqlite3.Database('./database.db', (err) => {
     if (err) {
-        console.error('Error opening database:', err);
+        console.error("Error opening database:", err);
     } else {
-        console.log('Connected to SQLite database');
+        console.log("Connected to SQLite database");
 
+        // Create users table if it doesn’t exist
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
-            age INTEGER,
-            weight REAL,
-            nationality TEXT
-        )`, () => {
-            insertDefaultUsers();
-        });
+            age INTEGER
+        )`);
     }
 });
 
-// ✅ Check and add missing columns
-function checkAndAddMissingColumns() {
-    db.all(`PRAGMA table_info(users)`, (err, columns) => {
-        if (err) {
-            console.error("Error checking table structure:", err);
-            return;
-        }
-
-        const existingColumns = columns.map(col => col.name);
-
-        if (!existingColumns.includes("age")) {
-            db.run("ALTER TABLE users ADD COLUMN age INTEGER", () => console.log("✅ Added 'age' column."));
-        }
-        if (!existingColumns.includes("weight")) {
-            db.run("ALTER TABLE users ADD COLUMN weight REAL", () => console.log("✅ Added 'weight' column."));
-        }
-        if (!existingColumns.includes("nationality")) {
-            db.run("ALTER TABLE users ADD COLUMN nationality TEXT", () => console.log("✅ Added 'nationality' column."));
-        }
-    });
-}
-
-// ✅ Insert default users
-function insertDefaultUsers() {
-    const users = [
-        { name: "Alice Johnson", email: "alice@example.com", age: 25, weight: 60.5, nationality: "American" },
-        { name: "Bob Smith", email: "bob@example.com", age: 30, weight: 75.0, nationality: "British" },
-        { name: "Majeed Babs", email: "majeed@example.com", age: 28, weight: 68.2, nationality: "Nigerian" }
-    ];
-
-    db.run("DELETE FROM users", () => {
-        console.log("Cleared existing users.");
-
-        const stmt = db.prepare('INSERT INTO users (name, email, age, weight, nationality) VALUES (?, ?, ?, ?, ?)');
-        users.forEach(user => {
-            stmt.run(user.name, user.email, user.age, user.weight, user.nationality);
-        });
-        stmt.finalize();
-        console.log("Inserted default users into the database.");
-    });
-}
-
-// ✅ Serve the `index.html` file at root URL
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// ✅ API Endpoints
+// ✅ Add a new user
 app.post('/add-user', (req, res) => {
-    const { name, email, age, weight, nationality } = req.body;
-    db.run(
-        'INSERT INTO users (name, email, age, weight, nationality) VALUES (?, ?, ?, ?, ?)',
-        [name, email, age, weight, nationality],
-        function (err) {
-            if (err) {
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ id: this.lastID, message: "User added successfully" });
-            }
+    const { name, email, age } = req.body;
+    if (!name || !email) {
+        return res.status(400).json({ error: "Name and Email are required!" });
+    }
+
+    db.run('INSERT INTO users (name, email, age) VALUES (?, ?, ?)', [name, email, age], function (err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json({ id: this.lastID, message: "User added successfully" });
         }
-    );
+    });
 });
 
+// ✅ Get all users
 app.get('/users', (req, res) => {
     db.all('SELECT * FROM users', [], (err, rows) => {
         if (err) {
@@ -106,23 +54,7 @@ app.get('/users', (req, res) => {
     });
 });
 
-app.put('/update-user/:id', (req, res) => {
-    const { name, email, age, weight, nationality } = req.body;
-    db.run(
-        'UPDATE users SET name = ?, email = ?, age = ?, weight = ?, nationality = ? WHERE id = ?',
-        [name, email, age, weight, nationality, req.params.id],
-        function (err) {
-            if (err) {
-                res.status(500).json({ error: err.message });
-            } else if (this.changes === 0) {
-                res.status(404).json({ error: "User not found" });
-            } else {
-                res.json({ updatedID: req.params.id, message: "User updated successfully" });
-            }
-        }
-    );
-});
-
+// ✅ Delete a user
 app.delete('/delete-user/:id', (req, res) => {
     db.run('DELETE FROM users WHERE id = ?', req.params.id, function (err) {
         if (err) {
@@ -132,7 +64,6 @@ app.delete('/delete-user/:id', (req, res) => {
         }
     });
 });
-
 // ✅ Start the server
 app.listen(port, () => {
     console.log(`🔥 Server running at http://localhost:${port}`);
