@@ -10,13 +10,12 @@ const port = 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// ✅ Connect to SQLite database
+// Connect to SQLite database
 const db = new sqlite3.Database('./database.db', (err) => {
     if (err) {
         console.error("Error opening database:", err);
     } else {
         console.log("Connected to SQLite database");
-
         // Create users table if it doesn’t exist
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +26,7 @@ const db = new sqlite3.Database('./database.db', (err) => {
     }
 });
 
-// ✅ Add a new user
+// Add a new user
 app.post('/add-user', (req, res) => {
     const { name, email, age } = req.body;
     if (!name || !email) {
@@ -43,7 +42,7 @@ app.post('/add-user', (req, res) => {
     });
 });
 
-// ✅ Get all users
+// Get all users
 app.get('/users', (req, res) => {
     db.all('SELECT * FROM users', [], (err, rows) => {
         if (err) {
@@ -54,7 +53,7 @@ app.get('/users', (req, res) => {
     });
 });
 
-// ✅ Delete a user
+// Delete a user
 app.delete('/delete-user/:id', (req, res) => {
     db.run('DELETE FROM users WHERE id = ?', req.params.id, function (err) {
         if (err) {
@@ -64,7 +63,13 @@ app.delete('/delete-user/:id', (req, res) => {
         }
     });
 });
-// ✅ Start the server
+
+// Handle GET request for root
+app.get('/', (req, res) => {
+    res.send('Welcome to the User Management API!');
+});
+
+// Start the server
 app.listen(port, () => {
-    console.log(`🔥 Server running at http://localhost:${port}`);
+    console.log(`Server running at http://localhost:${port}`);
 });
